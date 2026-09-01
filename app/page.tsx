@@ -27,6 +27,12 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
   const [cart, setCart] = useState<CartItem[]>([]);
 
+  // Modal & Success States
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [paymentMethod, setPaymentMethod] = useState<"money" | "pix" | "card" | null>(null);
+  const [amountReceived, setAmountReceived] = useState<string>("");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
   const categories = ["Todos", "Bebidas", "Snacks", "Doces", "Lanches"];
 
   const filteredProducts = products.filter((product) => {
@@ -69,18 +75,44 @@ export default function Home() {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0);
   };
 
-  const finalizeSale = (method: "money" | "pix" | "card") => {
+  const handleOpenCheckout = (method: "money" | "pix" | "card") => {
     const total = calculateSubtotal();
     if (total === 0) {
       alert("O carrinho está vazio!");
       return;
     }
-    alert(`Venda finalizada via ${method.toUpperCase()}!\nTotal: R$ ${total.toFixed(2)}`);
-    setCart([]);
+    setPaymentMethod(method);
+    setAmountReceived("");
+    setIsModalOpen(true);
   };
 
+  const confirmSale = () => {
+    const total = calculateSubtotal();
+    if (paymentMethod === "money") {
+      const received = parseFloat(amountReceived) || 0;
+      if (received < total) {
+        alert("O valor recebido é menor que o total a pagar!");
+        return;
+      }
+    }
+
+    const methodText = paymentMethod === "money" ? "Dinheiro" : paymentMethod === "pix" ? "PIX" : "Cartão";
+    
+    setIsModalOpen(false);
+    setCart([]);
+    setSuccessMessage(`Venda finalizada com sucesso via ${methodText}!`);
+    
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 4000);
+  };
+
+  const subtotal = calculateSubtotal();
+  const numericReceived = parseFloat(amountReceived) || 0;
+  const changeDue = numericReceived > subtotal ? numericReceived - subtotal : 0;
+
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col p-4 gap-4">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col p-4 gap-4 relative">
       {/* Top Bar */}
       <header className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex justify-between items-center shadow-lg">
         <div className="flex items-center space-x-3">
@@ -95,6 +127,14 @@ export default function Home() {
           <span className="text-sm font-medium text-emerald-400">Sistema Online</span>
         </div>
       </header>
+
+      {/* Success Notification Banner */}
+      {successMessage && (
+        <div className="bg-emerald-900/80 border border-emerald-600 text-emerald-200 px-4 py-3 rounded-xl shadow-lg flex items-center justify-between animate-fade-in">
+          <span className="text-sm font-medium">{successMessage}</span>
+          <button onClick={() => setSuccessMessage(null)} className="text-emerald-400 hover:text-white text-xs font-bold">✕</button>
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="flex-1 flex gap-4 overflow-hidden">
@@ -227,28 +267,28 @@ export default function Home() {
           <div className="border-t border-slate-800 pt-4 flex flex-col gap-3">
             <div className="flex justify-between items-center text-base font-medium text-slate-300">
               <span>Subtotal</span>
-              <span>R$ {calculateSubtotal().toFixed(2)}</span>
+              <span>R$ {subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-xl font-bold text-slate-100">
               <span>Total a Pagar</span>
-              <span className="text-emerald-400">R$ {calculateSubtotal().toFixed(2)}</span>
+              <span className="text-emerald-400">R$ {subtotal.toFixed(2)}</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2 mt-2">
               <button
-                onClick={() => finalizeSale("money")}
+                onClick={() => handleOpenCheckout("money")}
                 className="bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white py-2.5 px-2 rounded-lg text-xs font-semibold transition-colors border border-slate-700"
               >
                 Dinheiro
               </button>
               <button
-                onClick={() => finalizeSale("pix")}
+                onClick={() => handleOpenCheckout("pix")}
                 className="bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white py-2.5 px-2 rounded-lg text-xs font-semibold transition-colors border border-slate-700"
               >
                 PIX
               </button>
               <button
-                onClick={() => finalizeSale("card")}
+                onClick={() => handleOpenCheckout("card")}
                 className="bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white py-2.5 px-2 rounded-lg text-xs font-semibold transition-colors border border-slate-700"
               >
                 Cartão
@@ -257,6 +297,90 @@ export default function Home() {
           </div>
         </section>
       </div>
+
+      {/* Checkout Modal / Dialog */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-5">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-slate-100">
+                Finalizar Pagamento - {paymentMethod?.toUpperCase()}
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-200 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-between text-sm text-slate-300">
+                <span>Total da Compra:</span>
+                <span className="font-bold text-emerald-400">R$ {subtotal.toFixed(2)}</span>
+              </div>
+
+              {paymentMethod === "money" && (
+                <div className="flex flex-col gap-3 mt-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-slate-400">Valor Recebido (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      value={amountReceived}
+                      onChange={(e) => setAmountReceived(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    <span className="text-sm font-medium text-slate-300">Troco:</span>
+                    <span className={`text-base font-bold ${changeDue >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      R$ {changeDue.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === "pix" && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 my-2">
+                  <div className="w-12 h-12 bg-emerald-950 border border-emerald-800 text-emerald-400 rounded-full flex items-center justify-center font-bold text-xl mb-1">
+                    ✓
+                  </div>
+                  <p className="text-sm font-medium text-slate-200">Aguardando Confirmação PIX</p>
+                  <p className="text-xs text-slate-400">O cliente deve escanear o QR Code no terminal de pagamento.</p>
+                </div>
+              )}
+
+              {paymentMethod === "card" && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 my-2">
+                  <div className="w-12 h-12 bg-emerald-950 border border-emerald-800 text-emerald-400 rounded-full flex items-center justify-center font-bold text-xl mb-1">
+                    💳
+                  </div>
+                  <p className="text-sm font-medium text-slate-200">Insira ou aproxime o cartão</p>
+                  <p className="text-xs text-slate-400">Aguardando processamento na maquininha...</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-2">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-sm font-semibold transition-colors border border-slate-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmSale}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-emerald-950/40"
+              >
+                Confirmar Venda
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
