@@ -105,7 +105,7 @@ export default function Home() {
     
     setIsModalOpen(false);
     setIsConfirmingSale(false);
-    setCart();
+    setCart([]);
     setSuccessMessage(`Venda finalizada com sucesso via ${methodText}!`);
     
     setTimeout(() => {
@@ -355,4 +355,69 @@ export default function Home() {
 
                   {paymentMethod === "pix" && (
                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 my-2">
-                      <div className="w-12 h-12 bg-emerald-950 border border-emerald-800 text-emerald-400 rounded-full flex items-
+                      <div className="w-12 h-12 bg-emerald-950 border border-emerald-800 text-emerald-400 rounded-full flex items-center justify-center font-bold text-xl mb-1">
+                        ✓
+                      </div>
+                      <p className="text-sm font-medium text-slate-200">Aguardando Confirmação PIX</p>
+                      <p className="text-xs text-slate-400">O cliente deve escanear o QR Code no terminal de pagamento.</p>
+                    </div>
+                  )}
+
+                  {paymentMethod === "card" && (
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-2 my-2">
+                      <div className="w-12 h-12 bg-emerald-950 border border-emerald-800 text-emerald-400 rounded-full flex items-center justify-center font-bold text-xl mb-1">
+                        💳
+                      </div>
+                      <p className="text-sm font-medium text-slate-200">Insira ou aproxime o cartão</p>
+                      <p className="text-xs text-slate-400">Aguardando processamento na maquininha...</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-sm font-semibold transition-colors border border-slate-700"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleProceedToConfirmation}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-emerald-950/40"
+                  >
+                    Confirmar Venda
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-center text-center gap-3 py-4">
+                  <p className="text-base text-slate-200">Deseja realmente finalizar esta venda?</p>
+                  <div className="text-2xl font-bold text-emerald-400">
+                    R$ {subtotal.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-slate-400">Esta ação não poderá ser desfeita após a confirmação.</p>
+                </div>
+
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={() => setIsConfirmingSale(false)}
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-sm font-semibold transition-colors border border-slate-700"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    onClick={confirmSale}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-emerald-950/40"
+                  >
+                    Sim, Finalizar Venda
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
