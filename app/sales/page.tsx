@@ -62,3 +62,33 @@ export default async function SalesPage() {
                       <tr>
                         <th className="py-2 px-3">Produto</th>
                         <th className="py-2 px-3 text-center">Qtd</th>
+                        <th className="py-2 px-3 text-right">Preço Unitário</th>
+                        <th className="py-2 px-3 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/40">
+                      {sale.items.map((item) => (
+                        <tr key={item.id}>
+                          <td className="py-2 px-3 font-medium text-slate-200">
+                            {item.product.name}
+                          </td>
+                          <td className="py-2 px-3 text-center">{item.quantity}</td>
+                          <td className="py-2 px-3 text-right text-slate-400">
+                            R$ {item.price.toFixed(2)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-medium text-emerald-400">
+                            R$ {(item.price * item.quantity).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
