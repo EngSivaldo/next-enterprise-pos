@@ -1,28 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface Product {
   id: number;
   name: string;
   price: number;
   category: string;
+  stock: number;
 }
 
 interface CartItem extends Product {
   quantity: number;
 }
 
-const products: Product[] = [
-  { id: 1, name: "Refrigerante 350ml", price: 5.50, category: "Bebidas" },
-  { id: 2, name: "Salgadinho Batata", price: 3.00, category: "Snacks" },
-  { id: 3, name: "Chocolate Barra", price: 4.25, category: "Doces" },
-  { id: 4, name: "Água Mineral 500ml", price: 2.00, category: "Bebidas" },
-  { id: 5, name: "Energético 473ml", price: 9.00, category: "Bebidas" },
-  { id: 6, name: "Sanduíche Natural", price: 8.50, category: "Lanches" },
-];
-
 export default function Home() {
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -35,6 +28,17 @@ export default function Home() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const categories = ["Todos", "Bebidas", "Snacks", "Doces", "Lanches"];
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setProducts(data);
+        }
+      })
+      .catch((err) => console.error("Erro ao carregar produtos:", err));
+  }, []);
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -100,17 +104,37 @@ export default function Home() {
     setIsConfirmingSale(true);
   };
 
-  const confirmSale = () => {
+  const confirmSale = async () => {
+    const total = calculateSubtotal();
     const methodText = paymentMethod === "money" ? "Dinheiro" : paymentMethod === "pix" ? "PIX" : "Cartão";
-    
-    setIsModalOpen(false);
-    setIsConfirmingSale(false);
-    setCart([]);
-    setSuccessMessage(`Venda finalizada com sucesso via ${methodText}!`);
-    
-    setTimeout(() => {
-      setSuccessMessage(null);
-    }, 3000);
+
+    try {
+      const response = await fetch("/api/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          total,
+          paymentMethod: paymentMethod || "money",
+          items: cart,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao salvar venda");
+      }
+
+      setIsModalOpen(false);
+      setIsConfirmingSale(false);
+      setCart([]);
+      setSuccessMessage(`Venda finalizada com sucesso via ${methodText}!`);
+
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao finalizar a venda no banco de dados.");
+    }
   };
 
   const subtotal = calculateSubtotal();
