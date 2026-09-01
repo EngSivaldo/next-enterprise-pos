@@ -71,6 +71,10 @@ export default function Home() {
 
   const finalizeSale = (method: "money" | "pix" | "card") => {
     const total = calculateSubtotal();
+    if (total === 0) {
+      alert("O carrinho está vazio!");
+      return;
+    }
     alert(`Venda finalizada via ${method.toUpperCase()}!\nTotal: R$ ${total.toFixed(2)}`);
     setCart([]);
   };
@@ -117,7 +121,7 @@ export default function Home() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                     selectedCategory === cat
                       ? "bg-emerald-600 text-white"
-                      : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                      : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-250"
                   }`}
                 >
                   {cat}
@@ -129,3 +133,130 @@ export default function Home() {
           {/* Products Grid */}
           <div className="flex-1 overflow-y-auto pr-1">
             {filteredProducts.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    onClick={() => addToCart(product)}
+                    className="bg-slate-950 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-4 flex flex-col justify-between text-left transition-all hover:shadow-md hover:shadow-emerald-950/20 group"
+                  >
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-500 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-900/50">
+                        {product.category}
+                      </span>
+                      <h3 className="font-medium text-slate-200 mt-2 text-sm group-hover:text-emerald-400 transition-colors">
+                        {product.name}
+                      </h3>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-base font-bold text-slate-100">
+                        R$ {product.price.toFixed(2)}
+                      </span>
+                      <span className="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                        Adicionar
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                <p className="text-sm">Nenhum produto encontrado</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Right Column: Cart & Checkout */}
+        <section className="w-5/12 bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col shadow-lg">
+          <h2 className="text-lg font-semibold text-slate-200 mb-4">Carrinho Atual</h2>
+
+          {/* Cart Items List */}
+          <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2 mb-4">
+            {cart.length > 0 ? (
+              cart.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex items-center justify-between gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-slate-200 truncate">{item.name}</h4>
+                    <p className="text-xs text-slate-400">R$ {item.price.toFixed(2)} un</p>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => updateQuantity(item.id, -1)}
+                      className="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded flex items-center justify-center text-sm font-bold transition-colors"
+                    >
+                      -
+                    </button>
+                    <span className="text-sm font-semibold w-6 text-center">{item.quantity}</span>
+                    <button
+                      onClick={() => updateQuantity(item.id, 1)}
+                      className="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded flex items-center justify-center text-sm font-bold transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="text-right min-w-[70px]">
+                    <span className="text-sm font-bold text-emerald-400">
+                      R$ {(item.price * item.quantity).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => removeFromCart(item.id)}
+                    className="text-slate-500 hover:text-red-400 p-1 transition-colors"
+                    title="Remover item"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                <p className="text-sm">O carrinho está vazio</p>
+                <p className="text-xs text-slate-600 mt-1">Selecione produtos ao lado</p>
+              </div>
+            )}
+          </div>
+
+          {/* Summary & Checkout Actions */}
+          <div className="border-t border-slate-800 pt-4 flex flex-col gap-3">
+            <div className="flex justify-between items-center text-base font-medium text-slate-300">
+              <span>Subtotal</span>
+              <span>R$ {calculateSubtotal().toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center text-xl font-bold text-slate-100">
+              <span>Total a Pagar</span>
+              <span className="text-emerald-400">R$ {calculateSubtotal().toFixed(2)}</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              <button
+                onClick={() => finalizeSale("money")}
+                className="bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white py-2.5 px-2 rounded-lg text-xs font-semibold transition-colors border border-slate-700"
+              >
+                Dinheiro
+              </button>
+              <button
+                onClick={() => finalizeSale("pix")}
+                className="bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white py-2.5 px-2 rounded-lg text-xs font-semibold transition-colors border border-slate-700"
+              >
+                PIX
+              </button>
+              <button
+                onClick={() => finalizeSale("card")}
+                className="bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white py-2.5 px-2 rounded-lg text-xs font-semibold transition-colors border border-slate-700"
+              >
+                Cartão
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
