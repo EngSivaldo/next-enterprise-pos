@@ -1,36 +1,201 @@
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 1. DADOS DA EMPRESA (Emitente Fiscal)
+model Company {
+  id                 Int      @id @default(autoincrement())
+  corporateName      String   // Razão Social
+  tradeName          String?  // Nome Fantasia
+  cnpj               String   @unique
+  stateRegistration  String?  // Inscrição Estadual (IE)
+  phone              String?
+  email              String?
+  addressLine        String?  // Logradouro, Número, Bairro
+  city               String?
+  state              String?
+  zipCode            String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now()) @updatedAt
+}
+
+// 2. FORNECEDORES
+model Supplier {
+  id                 Int             @id @default(autoincrement())
+  corporateName      String          // Razão Social
+  tradeName          String?         // Nome Fantasia
+  cnpj               String          @unique
+  stateRegistration  String?         // IE
+  contactName        String?         // Nome do representante/vendedor
+  phone              String?
+  email              String?
+  address            String?
+  products           Product[]
+  stockMovements     StockMovement[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @default(now()) @updatedAt
+}
+
+// 3. OPERADORES / USUÁRIOS
+model User {
+  id             Int              @id @default(autoincrement())
+  name           String
+  email          String           @unique
+  role           String           @default("CASHIER") // ADMIN, CASHIER
+  active         Boolean          @default(true)
+  sales          Sale[]
+  registers      CashRegister[]
+  stockMovements StockMovement[]
+  createdAt      DateTime         @default(now())
+}
+
+// 4. CLIENTES
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  document  String?  @unique // CPF ou CNPJ
+  email     String?
+  phone     String?
+  address   String?
+  sales     Sale[]
+  createdAt DateTime @default(now())
+}
+
+// 5. CATEGORIAS DE PRODUTOS
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
+}
+
+// 6. PRODUTOS, TRIBUTAÇÃO E FORNECEDOR
 model Product {
-  id         Int        @id @default(autoincrement())
-  name       String
-  price      Float
-  category   String
-  stock      Int        @default(0)
-  createdAt  DateTime   @default(now())
-  saleItems  SaleItem[]
+  id             Int             @id @default(autoincrement())
+  name           String
+  barcode        String?         @unique // Código de barras EAN/GTIN
+  price          Float           // Preço de Venda
+  costPrice      Float?          @default(0.0) // Preço de Custo
+  stock          Int             @default(0)
+  minStock       Int             @default(5)   // Alerta de estoque baixo
+  unit           String          @default("UN")// UN, KG, LT, CX
+  
+  // Requisitos Fiscais
+  ncm            String?         // Nomenclatura Comum do Mercosul
+  cest           String?         // Código Especificador da Substituição Tributária
+  taxPercentage  Float           @default(0.0) // Alíquota IBPT (Lei de Olho no Imposto)
+  
+  // Relacionamentos
+  categoryId     Int?
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  supplierId     Int?
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @default(now()) @updatedAt
 }
 
+// 7. CONTROLE DE ESTOQUE (HISTÓRICO E ENTRADA DE NOTAS/MERCADORIA)
+model StockMovement {
+  id            Int      @id @default(autoincrement())
+  productId     Int
+  product       Product  @relation(fields: [productId], references: [id])
+  supplierId    Int?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  userId        Int?
+  user          User?    @relation(fields: [userId], references: [id])
+  
+  type          String   // IN_PURCHASE (Compra/Entrada), OUT_SALE (Venda), IN_ADJUSTMENT (Ajuste +), OUT_LOSS (Perda/Avaria), OUT_ADJUSTMENT (Ajuste -)
+  quantity      Int      // Quantidade movimentada
+  unitCost      Float?   // Custo unitário no momento da compra/entrada
+  invoiceNumber String?  // Número da Nota Fiscal de Entrada
+  notes         String?  // Observações (ex: "Produto vencido", "Ajuste de inventário")
+  
+  createdAt     DateTime @default(now())
+}
+
+// 8. CONTROLE DE CAIXA (TURNOS / SANGRIAS)
+model CashRegister {
+  id             Int               @id @default(autoincrement())
+  userId         Int
+  user           User              @relation(fields: [userId], references: [id])
+  openedAt       DateTime          @default(now())
+  closedAt       DateTime?
+  initialBalance Float             // Fundo de Troco
+  finalBalance   Float?            // Saldo no Fechamento
+  status         String            @default("OPEN") // OPEN, CLOSED
+  transactions   CashTransaction[]
+  sales          Sale[]
+}
+
+// 9. MOVIMENTAÇÕES DE CAIXA (Sangria / Suprimento)
+model CashTransaction {
+  id             Int          @id @default(autoincrement())
+  cashRegisterId Int
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id])
+  type           String       // CASH_IN (Suprimento), CASH_OUT (Sangria)
+  amount         Float
+  reason         String?
+  createdAt      DateTime     @default(now())
+}
+
+// 10. VENDAS COMPLETAS
 model Sale {
-  id            Int        @id @default(autoincrement())
-  total         Float
-  paymentMethod String
-  createdAt     DateTime   @default(now())
-  items         SaleItem[]
+  id               Int          @id @default(autoincrement())
+  code             String?      @unique // Código Único de Venda
+  subtotal         Float        @default(0.0)
+  discount         Float        @default(0.0)
+  total            Float
+  paidAmount       Float        @default(0.0) // Valor entregue pelo cliente
+  changeAmount     Float        @default(0.0) // Troco devolvido
+  paymentMethod    String       // MONEY, PIX, CREDIT_CARD, DEBIT_CARD
+  status           String       @default("COMPLETED") // COMPLETED, CANCELED
+  
+  // Dados do Cliente
+  customerId       Int?
+  customer         Customer?    @relation(fields: [customerId], references: [id])
+  customerName     String?      // Nome rápido sem cadastro
+  customerDocument String?      // CPF/CNPJ rápido no cupom
+  
+  // Operador e Caixa
+  userId           Int?
+  user             User?        @relation(fields: [userId], references: [id])
+  cashRegisterId   Int?
+  cashRegister     CashRegister? @relation(fields: [cashRegisterId], references: [id])
+  
+  // Detalhes Fiscais
+  taxTotal         Float        @default(0.0) // Valor aproximado dos tributos
+  fiscalKey        String?      // Chave da NFC-e (se emitida)
+  
+  items            SaleItem[]
+  createdAt        DateTime     @default(now())
+  canceledAt       DateTime?
 }
 
+// 11. ITENS DA VENDA
 model SaleItem {
-  id        Int     @id @default(autoincrement())
-  saleId    Int
-  productId Int
-  quantity  Int
-  price     Float
-  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id])
+  id            Int     @id @default(autoincrement())
+  saleId        Int
+  sale          Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId     Int
+  product       Product @relation(fields: [productId], references: [id])
+  quantity      Int
+  price         Float   // Preço unitário praticado na venda
+  subtotal      Float   @default(0.0) // quantity * price
+  taxAmount     Float   @default(0.0)
+}
+
+// 12. TRILHA DE AUDITORIA
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String   // CANCELED_SALE, PRICE_OVERRIDE, CASH_DRAWER_OPEN, STOCK_ADJUSTMENT
+  details   String
+  createdAt DateTime @default(now())
 }

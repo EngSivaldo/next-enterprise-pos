@@ -1,0 +1,14 @@
+.aider*
+.env
+node_modules
+cat << 'EOF' > .gitignore
+node_modules/
+.next/
+out/
+build/
+*.db
+*.db-journal
+app_backup/
+.env
+.env.local
+EOF

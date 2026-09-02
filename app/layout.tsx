@@ -1,9 +1,9 @@
 import "./globals.css";
-import React from "react";
+import { ThemeProvider } from "../context/ThemeContext";
 
 export const metadata = {
-  title: "PDV System - Dark Mode",
-  description: "Professional POS Interface",
+  title: "Sistema Comercial / PDV",
+  description: "Sistema de Vendas",
 };
 
 export default function RootLayout({
@@ -12,9 +12,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className="dark">
-      <body className="bg-slate-950 text-slate-100 min-h-screen">
-        {children}
+    <html lang="pt-BR" data-theme="dark">
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

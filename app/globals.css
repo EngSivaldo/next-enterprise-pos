@@ -1,3 +1,52 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Temas Globais do Sistema */
+:root, [data-theme="dark"] {
+  --bg-main: #020617;
+  --bg-card: #0f172a;
+  --bg-inner: #020617;
+  --border-color: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-color: #10b981;
+  --btn-primary-bg: #10b981;
+  --btn-primary-text: #020617;
+}
+
+[data-theme="light"] {
+  --bg-main: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-inner: #f8fafc;
+  --border-color: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --accent-color: #2563eb;
+  --btn-primary-bg: #2563eb;
+  --btn-primary-text: #ffffff;
+}
+
+[data-theme="vibrant"] {
+  --bg-main: #0f172a;
+  --bg-card: #1e1b4b;
+  --bg-inner: #0f172a;
+  --border-color: #312e81;
+  --text-primary: #f8fafc;
+  --text-secondary: #c7d2fe;
+  --accent-color: #06b6d4;
+  --btn-primary-bg: #06b6d4;
+  --btn-primary-text: #020617;
+}
+
+/* Classes Utilitárias para usar no JSX */
+.bg-main { background-color: var(--bg-main); }
+.bg-card { background-color: var(--bg-card); }
+.bg-inner { background-color: var(--bg-inner); }
+.border-theme { border-color: var(--border-color); }
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-accent { color: var(--accent-color); }
+.btn-primary { 
+  background-color: var(--btn-primary-bg); 
+  color: var(--btn-primary-text); 
+}

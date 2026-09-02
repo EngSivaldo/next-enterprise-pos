@@ -1,83 +1,254 @@
-import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+"use client";
 
-export default async function SalesPage() {
-  const sales = await prisma.sale.findMany({
-    include: {
-      items: {
-        include: {
-          product: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { Header } from "@/components/Header";
+
+interface SaleItem {
+  id: number;
+  quantity: number;
+  price: number;
+  product: {
+    name: string;
+  };
+}
+
+interface Sale {
+  id: number;
+  total: number;
+  paidAmount: number;
+  changeAmount: number;
+  paymentMethod: string;
+  customerName?: string | null;
+  customerDocument?: string | null;
+  taxTotal: number;
+  createdAt: string;
+  items: SaleItem[];
+}
+
+export default function SalesHistoryPage() {
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const fetchSales = () => {
+    setLoading(true);
+    fetch("/api/sales")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSales(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar histórico de vendas:", err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchSales();
+  }, []);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const translatePaymentMethod = (method: string) => {
+    const map: Record<string, string> = {
+      MONEY: "Dinheiro",
+      PIX: "PIX",
+      CREDIT_CARD: "Cartão de Crédito",
+      DEBIT_CARD: "Cartão de Débito",
+    };
+    return map[method] || method;
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-primary)] flex flex-col font-sans select-none">
+      <Header />
+
+      <main className="max-w-6xl mx-auto w-full space-y-6 p-6 flex-1">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold tracking-tight">Histórico de Vendas</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+              Histórico de Vendas
+            </h1>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
+              Consulte transações passadas e reimprima comprovantes
+            </p>
+          </div>
           <Link
             href="/"
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-inner)] rounded-xl border border-[var(--border-color)] transition-colors"
           >
-            Voltar ao PDV
+            Menu Principal
           </Link>
         </div>
 
-        {sales.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-slate-400">
-            Nenhuma venda registrada até o momento.
-          </div>
-        ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-300">
-                <thead className="text-xs uppercase bg-slate-950/50 text-slate-400 border-b border-slate-800">
-                  <tr>
-                    <th className="py-3 px-4">ID</th>
-                    <th className="py-3 px-4">Data</th>
-                    <th className="py-3 px-4">Pagamento</th>
-                    <th className="py-3 px-4">Itens</th>
-                    <th className="py-3 px-4 text-right">Total</th>
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-xl">
+          {loading ? (
+            <div className="p-8 text-center text-[var(--text-secondary)] text-sm">
+              Carregando histórico...
+            </div>
+          ) : sales.length === 0 ? (
+            <div className="p-8 text-center text-[var(--text-secondary)] text-sm">
+              Nenhuma venda registrada até o momento.
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border-color)] bg-[var(--bg-inner)] text-xs text-[var(--text-secondary)] uppercase tracking-wider">
+                  <th className="p-4">Venda</th>
+                  <th className="p-4">Data/Hora</th>
+                  <th className="p-4">Cliente</th>
+                  <th className="p-4">Pagamento</th>
+                  <th className="p-4 text-right">Total</th>
+                  <th className="p-4 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {sales.map((sale) => (
+                  <tr
+                    key={sale.id}
+                    className="hover:bg-[var(--bg-inner)]/50 transition-colors"
+                  >
+                    <td className="p-4 font-semibold text-[var(--accent-color)] font-mono">
+                      #{String(sale.id).padStart(4, "0")}
+                    </td>
+                    <td className="p-4 text-xs text-[var(--text-secondary)]">
+                      {new Date(sale.createdAt).toLocaleString("pt-BR")}
+                    </td>
+                    <td className="p-4 font-medium text-[var(--text-primary)]">
+                      {sale.customerName || "Consumidor Não Identificado"}
+                    </td>
+                    <td className="p-4 text-xs">
+                      <span className="px-2.5 py-1 rounded-full bg-[var(--bg-inner)] border border-[var(--border-color)] font-semibold text-[var(--text-primary)]">
+                        {translatePaymentMethod(sale.paymentMethod)}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right font-extrabold font-mono text-[var(--accent-color)]">
+                      R$ {Number(sale.total).toFixed(2)}
+                    </td>
+                    <td className="p-4 text-center">
+                      <button
+                        onClick={() => setSelectedSale(sale)}
+                        className="px-3 py-1.5 bg-[var(--bg-inner)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] border border-[var(--border-color)] text-xs font-semibold rounded-lg transition-colors"
+                      >
+                        Ver Cupom
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {sales.map((sale) => (
-                    <tr key={sale.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3 px-4 font-bold text-emerald-400">#{sale.id}</td>
-                      <td className="py-3 px-4 text-slate-400">
-                        {new Date(sale.createdAt).toLocaleString("pt-BR")}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="uppercase text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded-full font-medium">
-                          {sale.paymentMethod}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="space-y-1">
-                          {sale.items.map((item) => (
-                            <div key={item.id} className="text-xs text-slate-300">
-                              <span className="font-medium text-slate-200">{item.product.name}</span>
-                              <span className="text-slate-400"> (x{item.quantity}) - R$ {item.price.toFixed(2)} un</span>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-emerald-400">
-                        R$ {sale.total.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </main>
+
+      {/* Modal de Detalhes / Comprovante */}
+      {selectedSale && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-3">
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">
+                Comprovante da Venda #{selectedSale.id}
+              </h2>
+              <button
+                onClick={() => setSelectedSale(null)}
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              ref={printRef}
+              className="bg-white text-black p-6 rounded-lg font-mono text-xs space-y-3 leading-tight shadow-inner"
+            >
+              <div className="text-center border-b border-black pb-2 space-y-1">
+                <p className="font-bold text-sm uppercase">COMPROVANTE DE VENDA</p>
+                <p>PDV SISTEMA COMERCIAL</p>
+                <p>CNPJ: 00.000.000/0001-00</p>
+                <p className="text-[10px]">
+                  {new Date(selectedSale.createdAt).toLocaleString("pt-BR")}
+                </p>
+                <p className="font-bold">VENDA Nº #{selectedSale.id}</p>
+              </div>
+
+              {(selectedSale.customerName || selectedSale.customerDocument) && (
+                <div className="border-b border-black pb-2">
+                  <p className="font-bold">CONSUMIDOR:</p>
+                  {selectedSale.customerName && (
+                    <p>NOME: {selectedSale.customerName}</p>
+                  )}
+                  {selectedSale.customerDocument && (
+                    <p>CPF/CNPJ: {selectedSale.customerDocument}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="border-b border-black pb-2 space-y-1">
+                <div className="flex justify-between font-bold border-b border-gray-300 pb-1">
+                  <span>ITEM / QTD x UN</span>
+                  <span>TOTAL</span>
+                </div>
+                {selectedSale.items.map((item) => (
+                  <div key={item.id} className="flex justify-between">
+                    <span>
+                      {item.product.name} ({item.quantity}x)
+                    </span>
+                    <span>R$ {(item.quantity * item.price).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-1 pt-1">
+                <div className="flex justify-between font-bold text-sm">
+                  <span>TOTAL:</span>
+                  <span>R$ {Number(selectedSale.total).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>FORMA PAGTO:</span>
+                  <span className="uppercase">
+                    {translatePaymentMethod(selectedSale.paymentMethod)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>VALOR PAGO:</span>
+                  <span>R$ {Number(selectedSale.paidAmount).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>TROCO:</span>
+                  <span>R$ {Number(selectedSale.changeAmount).toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-dashed border-black pt-2 text-[10px] text-center">
+                <p>
+                  Trib. Aprox.: R$ {Number(selectedSale.taxTotal).toFixed(2)} (Lei 12.741/2012)
+                </p>
+                <p className="mt-1 font-bold">Obrigado pela preferência!</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handlePrint}
+                className="flex-1 py-3 bg-[var(--accent-color)] hover:opacity-90 text-[var(--btn-primary-text)] font-bold rounded-xl text-xs uppercase tracking-wider transition-opacity"
+              >
+                Imprimir Cupom
+              </button>
+              <button
+                onClick={() => setSelectedSale(null)}
+                className="flex-1 py-3 bg-[var(--bg-inner)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] font-semibold rounded-xl text-xs uppercase tracking-wider transition-colors"
+              >
+                Fechar
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

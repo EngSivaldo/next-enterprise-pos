@@ -1,103 +1,87 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
+import { Header } from "@/components/Header";
 
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  category: string;
-  stock: number;
+export default function HomePage() {
+  const menuOptions = [
+    {
+      title: "Frente de Caixa (PDV)",
+      description: "Abertura de vendas, passagem de itens, troco e emissão de cupons.",
+      href: "/pos",
+      icon: "🛒",
+      color: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:border-emerald-500",
+    },
+    {
+      title: "Controle de Estoque",
+      description: "Consulta de produtos, quantidade disponível e alertas de estoque baixo.",
+      href: "/inventory",
+      icon: "📦",
+      color: "border-blue-500/30 bg-blue-500/10 text-blue-400 hover:border-blue-500",
+    },
+    {
+      title: "Histórico de Vendas",
+      description: "Relatório de vendas concluídas, reimpressão de cupons e estornos.",
+      href: "/sales",
+      icon: "📄",
+      color: "border-purple-500/30 bg-purple-500/10 text-purple-400 hover:border-purple-500",
+    },
+    {
+      title: "Gestão de Fornecedores",
+      description: "Cadastro de fornecedores e controle de entradas de mercadorias.",
+      href: "/suppliers",
+      icon: "🚚",
+      color: "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:border-amber-500",
+    },
+    {
+      title: "Cadastro de Clientes",
+      description: "Base de dados dos clientes para emissão rápida de documentos fiscais.",
+      href: "/customers",
+      icon: "👥",
+      color: "border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:border-cyan-500",
+    },
+    {
+      title: "Abertura / Fechamento de Caixa",
+      description: "Controle de turnos, sangrias, suprimentos e conferência de valores.",
+      href: "/cash-register",
+      icon: "💰",
+      color: "border-rose-500/30 bg-rose-500/10 text-rose-400 hover:border-rose-500",
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-primary)] flex flex-col">
+      {/* Header Global com Seletor de Temas */}
+      <Header />
+
+      <main className="flex-1 max-w-6xl w-full mx-auto p-6 flex flex-col justify-center">
+        <div className="mb-8 text-center sm:text-left">
+          <h2 className="text-2xl font-bold text-[var(--text-primary)]">Selecione um Módulo</h2>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
+            Acessee rapidamente as opções do sistema abaixo:
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {menuOptions.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`p-6 rounded-2xl border transition-all duration-200 flex flex-col justify-between hover:scale-[1.02] shadow-xl bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--accent-color)]`}
+            >
+              <div>
+                <div className="text-3xl mb-3">{item.icon}</div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">{item.title}</h3>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{item.description}</p>
+              </div>
+              <div className="mt-6 flex items-center text-xs font-semibold text-[var(--accent-color)]">
+                Acessar módulo <span className="ml-1">→</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
 }
-
-interface CartItem extends Product {
-  quantity: number;
-}
-
-export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
-  const [cart, setCart] = useState<CartItem[]>([]);
-
-  // Modal & Success States
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [paymentMethod, setPaymentMethod] = useState<"money" | "pix" | "card" | null>(null);
-  const [amountReceived, setAmountReceived] = useState<string>("");
-  const [isConfirmingSale, setIsConfirmingSale] = useState<boolean>(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const categories = ["Todos", "Bebidas", "Snacks", "Doces", "Lanches"];
-
-  useEffect(() => {
-    fetch("/api/products")
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setProducts(data);
-        }
-      })
-      .catch((err) => console.error("Erro ao carregar produtos:", err));
-  }, []);
-
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "Todos" || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const addToCart = (product: Product) => {
-    setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
-      if (existingItem) {
-        return prevCart.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prevCart, { ...product, quantity: 1 }];
-    });
-  };
-
-  const updateQuantity = (itemId: number, delta: number) => {
-    setCart((prevCart) => {
-      return prevCart
-        .map((item) => {
-          if (item.id === itemId) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean) as CartItem[];
-    });
-  };
-
-  const removeFromCart = (itemId: number) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== itemId));
-  };
-
-  const calculateSubtotal = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
-  };
-
-  const handleOpenCheckout = (method: "money" | "pix" | "card") => {
-    const total = calculateSubtotal();
-    if (total === 0) {
-      alert("O carrinho está vazio!");
-      return;
-    }
-    setPaymentMethod(method);
-    setAmountReceived("");
-    setIsConfirmingSale(false);
-    setIsModalOpen(true);
-  };
-
-  const handleProceedToConfirmation = () => {
-    const total = calculateSubtotal();
-    if (paymentMethod === "money") {
-      const received = parseFloat(amountReceived) || 0;
-      if (received < total) {
-        alert("O valor recebido é menor que o total a pagar!");
-        return;
-      }
