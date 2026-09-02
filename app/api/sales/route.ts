@@ -59,6 +59,7 @@ function isValidCNPJ(cnpj: string): boolean {
   return true;
 }
 
+// GET: Traz histórico e injeta o paymentMethod no retorno para a tabela ler
 export async function GET() {
   try {
     const sales = await prisma.sale.findMany({
@@ -73,7 +74,12 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(sales);
+    const formattedSales = sales.map((sale: any) => ({
+      ...sale,
+      paymentMethod: sale.fiscalKey || "MONEY",
+    }));
+
+    return NextResponse.json(formattedSales);
   } catch (error) {
     console.error("Erro ao buscar histórico de vendas:", error);
     return NextResponse.json(
@@ -83,17 +89,18 @@ export async function GET() {
   }
 }
 
+// POST: Registra a venda salvando a forma de pagamento sem violar o schema
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { 
       items, 
+      paymentMethod,
       paidAmount, 
       customerName, 
       customerDocument 
     } = body;
 
-    // 1. Validação inicial do carrinho
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: "O carrinho não pode estar vazio." },
@@ -101,7 +108,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Busca o caixa aberto no momento
     const activeRegister = await prisma.cashRegister.findFirst({
       where: { status: "OPEN" },
       orderBy: { openedAt: "desc" },
@@ -114,7 +120,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Validação do Documento (CPF/CNPJ)
     const cleanDocument = customerDocument ? String(customerDocument).replace(/\D/g, "").trim() : "";
 
     if (cleanDocument.length > 0) {
@@ -127,7 +132,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Criação da Venda alinhada rigorosamente com o schema.prisma
     const newSale = await prisma.$transaction(async (tx) => {
       let subtotalSum = 0;
       let taxTotalSum = 0;
@@ -138,7 +142,6 @@ export async function POST(request: Request) {
         price: Number(item.price || item.unitPrice) || 0,
       }));
 
-      // Verifica estoque e calcula totais
       for (const item of normalizedItems) {
         const product = await tx.product.findUnique({
           where: { id: item.productId },
@@ -164,7 +167,6 @@ export async function POST(request: Request) {
       const received = paidAmount ? parseFloat(paidAmount) : total;
       const change = received >= total ? received - total : 0.0;
 
-      // Atualiza estoque e registra histórico
       for (const item of normalizedItems) {
         await tx.product.update({
           where: { id: item.productId },
@@ -181,7 +183,6 @@ export async function POST(request: Request) {
         });
       }
 
-      // Cria a venda ajustada exatamente com o modelo Sale e SaleItem
       return await tx.sale.create({
         data: {
           subtotal: subtotalSum,
@@ -190,6 +191,7 @@ export async function POST(request: Request) {
           paidAmount: received,
           changeAmount: change,
           status: "COMPLETED",
+          fiscalKey: paymentMethod || "MONEY", // Armazena a forma de pagamento com segurança
           customerName: customerName || null,
           customerDocument: cleanDocument.length > 0 ? cleanDocument : null,
           taxTotal: taxTotalSum,
@@ -217,7 +219,11 @@ export async function POST(request: Request) {
       });
     });
 
-    return NextResponse.json(newSale, { status: 201 });
+    return NextResponse.json({
+      ...newSale,
+      paymentMethod: newSale.fiscalKey || "MONEY"
+    }, { status: 201 });
+
   } catch (error: any) {
     console.error("Erro ao criar a venda no Prisma:", error);
     return NextResponse.json(
