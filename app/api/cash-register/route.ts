@@ -18,13 +18,19 @@ export async function GET() {
       return NextResponse.json({ isOpen: false, register: null });
     }
 
-    // Saldo teórico acumulado
-    const totalSales = activeRegister.sales.reduce((acc, sale) => acc + sale.total, 0);
+    // Conversão explícita de Decimal para Number durante a agregação
+    const totalSales = activeRegister.sales.reduce(
+      (acc, sale) => acc + Number(sale.total),
+      0
+    );
+
     const totalTransactions = activeRegister.transactions.reduce((acc, tx) => {
-      return tx.type === "CASH_IN" ? acc + tx.amount : acc - tx.amount;
+      const amount = Number(tx.amount);
+      return tx.type === "CASH_IN" ? acc + amount : acc - amount;
     }, 0);
 
-    const calculatedBalance = activeRegister.initialBalance + totalSales + totalTransactions;
+    const initialBalance = Number(activeRegister.initialBalance);
+    const calculatedBalance = initialBalance + totalSales + totalTransactions;
 
     return NextResponse.json({
       isOpen: true,
@@ -67,7 +73,7 @@ export async function POST(req: Request) {
       const newRegister = await prisma.cashRegister.create({
         data: {
           userId: user.id,
-          initialBalance: parseFloat(initialBalance || "0"),
+          initialBalance: parseFloat(initialBalance) || 0,
           status: "OPEN",
           openingNotes: notes,
         },
@@ -76,7 +82,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, register: newRegister });
     }
 
-    const activeRegister = await prisma.cashRegister.findFirst({ where: { status: "OPEN" } });
+    const activeRegister = await prisma.cashRegister.findFirst({
+      where: { status: "OPEN" },
+      include: {
+        sales: { select: { total: true } },
+        transactions: true,
+      },
+    });
+
     if (!activeRegister) {
       return NextResponse.json({ error: "Não há nenhum caixa aberto para realizar esta operação!" }, { status: 400 });
     }
@@ -87,29 +100,65 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Apenas Gerentes ou Admins podem fechar o caixa!" }, { status: 403 });
       }
 
+      const totalSales = activeRegister.sales.reduce(
+        (acc, sale) => acc + Number(sale.total),
+        0
+      );
+
+      const totalTransactions = activeRegister.transactions.reduce((acc, tx) => {
+        const amt = Number(tx.amount);
+        return tx.type === "CASH_IN" ? acc + amt : acc - amt;
+      }, 0);
+
+      const initial = Number(activeRegister.initialBalance);
+      const expectedBalance = initial + totalSales + totalTransactions;
+      const reportedBalance = parseFloat(finalBalance) || 0;
+      const difference = reportedBalance - expectedBalance;
+
+      let auditNote = `Esperado: R$ ${expectedBalance.toFixed(2)} | Informado: R$ ${reportedBalance.toFixed(2)}`;
+      if (difference < 0) {
+        auditNote += ` | QUEBRA DE CAIXA: -R$ ${Math.abs(difference).toFixed(2)}`;
+      } else if (difference > 0) {
+        auditNote += ` | SOBRA DE CAIXA: +R$ ${difference.toFixed(2)}`;
+      } else {
+        auditNote += ` | CAIXA ZERADO (SEM DIFERENÇA)`;
+      }
+
+      if (notes) {
+        auditNote += ` - Obs: ${notes}`;
+      }
+
       const updatedRegister = await prisma.cashRegister.update({
         where: { id: activeRegister.id },
         data: {
           status: "CLOSED",
           closedById: user.id,
           closedAt: new Date(),
-          finalBalance: parseFloat(finalBalance || "0"),
-          closingNotes: notes,
+          finalBalance: reportedBalance,
+          closingNotes: auditNote,
         },
       });
 
-      return NextResponse.json({ success: true, register: updatedRegister });
+      return NextResponse.json({
+        success: true,
+        register: updatedRegister,
+        summary: {
+          expectedBalance,
+          reportedBalance,
+          difference,
+        },
+      });
     }
 
     // 4. Movimentações (Sangria / Suprimento)
     if (action === "TRANSACTION") {
       const transactionType = body.type;
-      
+
       const newTransaction = await prisma.cashTransaction.create({
         data: {
           cashRegisterId: activeRegister.id,
           type: transactionType,
-          amount: parseFloat(amount),
+          amount: parseFloat(amount) || 0,
           reason: reason || (transactionType === "CASH_OUT" ? "Sangria" : "Suprimento"),
         },
       });

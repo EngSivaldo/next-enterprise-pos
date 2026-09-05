@@ -53,8 +53,8 @@ model User {
   sales           Sale[]
   openedRegisters CashRegister[] @relation("OpenedBy")
   closedRegisters CashRegister[] @relation("ClosedBy")
-  stockMovements StockMovement[]
-  auditLogs      AuditLog[]
+  stockMovements  StockMovement[]
+  auditLogs       AuditLog[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @default(now()) @updatedAt
 }
@@ -83,16 +83,16 @@ model Product {
   id            Int             @id @default(autoincrement())
   name          String
   barcode       String?         @unique // Código de barras EAN/GTIN
-  price         Float           // Preço de Venda
-  costPrice     Float?          @default(0.0) // Preço de Custo
-  stock         Float           @default(0.0) // Alterado de Int para Float (Suporta KG, LT, etc.)
-  minStock      Float           @default(5.0) // Alterado de Int para Float
+  price         Decimal         // Alterado para Decimal (Precisão Monetária)
+  costPrice     Decimal?        @default(0.0) // Alterado para Decimal
+  stock         Decimal         @default(0.0) // Alterado para Decimal (Suporta KG, LT)
+  minStock      Decimal         @default(5.0) // Alterado para Decimal
   unit          String          @default("UN")// UN, KG, LT, CX
 
   // Requisitos Fiscais
   ncm           String?         // Nomenclatura Comum do Mercosul
   cest          String?         // Código Especificador da Substituição Tributária
-  taxPercentage Float           @default(0.0) // Alíquota IBPT
+  taxPercentage Decimal         @default(0.0) // Alterado para Decimal
 
   // Relacionamentos
   categoryId    Int?
@@ -100,10 +100,10 @@ model Product {
   supplierId    Int?
   supplier      Supplier?       @relation(fields: [supplierId], references: [id])
 
-  saleItems      SaleItem[]
+  saleItems     SaleItem[]
   stockMovements StockMovement[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @default(now()) @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @default(now()) @updatedAt
 }
 
 // 7. CONTROLE DE ESTOQUE (HISTÓRICO)
@@ -117,8 +117,8 @@ model StockMovement {
   user          User?    @relation(fields: [userId], references: [id])
 
   type          String   // IN_PURCHASE, OUT_SALE, IN_ADJUSTMENT, OUT_LOSS, OUT_ADJUSTMENT
-  quantity      Float    // Alterado de Int para Float (Suporta movimentação fracionada)
-  unitCost      Float?
+  quantity      Decimal  // Alterado para Decimal
+  unitCost      Decimal? // Alterado para Decimal
   invoiceNumber String?
   notes         String?
 
@@ -135,9 +135,9 @@ model CashRegister {
 
   openedAt          DateTime          @default(now())
   closedAt          DateTime?
-  initialBalance    Float             // Fundo de Troco Inicial
-  calculatedBalance Float?            // Saldo Esperado pelo Sistema no Fechamento
-  finalBalance      Float?            // Saldo Informado na Conferência Cega
+  initialBalance    Decimal           // Alterado para Decimal
+  calculatedBalance Decimal?          // Alterado para Decimal
+  finalBalance      Decimal?          // Alterado para Decimal
   status            String            @default("OPEN") // OPEN, CLOSED
   openingNotes      String?
   closingNotes      String?
@@ -152,7 +152,7 @@ model CashTransaction {
   cashRegisterId Int
   cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id])
   type           String       // CASH_IN (Suprimento), CASH_OUT (Sangria)
-  amount         Float
+  amount         Decimal      // Alterado para Decimal
   reason         String?
   createdAt      DateTime     @default(now())
 }
@@ -161,11 +161,11 @@ model CashTransaction {
 model Sale {
   id               Int           @id @default(autoincrement())
   code             String?       @unique // Código Único
-  subtotal         Float         @default(0.0)
-  discount         Float         @default(0.0)
-  total            Float
-  paidAmount       Float         @default(0.0)
-  changeAmount     Float         @default(0.0)
+  subtotal         Decimal       @default(0.0) // Alterado para Decimal
+  discount         Decimal       @default(0.0) // Alterado para Decimal
+  total            Decimal       // Alterado para Decimal
+  paidAmount       Decimal       @default(0.0) // Alterado para Decimal
+  changeAmount     Decimal       @default(0.0) // Alterado para Decimal
   status           String        @default("COMPLETED") // COMPLETED, CANCELED
 
   // Dados do Cliente
@@ -181,7 +181,7 @@ model Sale {
   cashRegister     CashRegister? @relation(fields: [cashRegisterId], references: [id])
 
   // Detalhes Fiscais
-  taxTotal         Float         @default(0.0)
+  taxTotal         Decimal       @default(0.0) // Alterado para Decimal
   fiscalKey        String?
 
   items            SaleItem[]
@@ -196,23 +196,23 @@ model SalePayment {
   saleId    Int
   sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   method    String   // MONEY, PIX, CREDIT_CARD, DEBIT_CARD
-  amount    Float    // Valor pago nessa modalidade
+  amount    Decimal  // Alterado para Decimal
   createdAt DateTime @default(now())
 }
 
 // 12. ITENS DA VENDA
 model SaleItem {
-  id        Int     @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   saleId    Int
-  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId Int
-  product   Product @relation(fields: [productId], references: [id])
-  quantity  Float   // Alterado de Int para Float (Suporta quantidade vendida fracionada)
-  price     Float   // Preço de venda praticado
-  costPrice Float?  @default(0.0) // Custo histórico no momento da venda
-  discount  Float   @default(0.0)
-  subtotal  Float   @default(0.0) // (quantity * price) - discount
-  taxAmount Float   @default(0.0)
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Decimal  // Alterado para Decimal
+  price     Decimal  // Alterado para Decimal
+  costPrice Decimal? @default(0.0) // Alterado para Decimal
+  discount  Decimal  @default(0.0) // Alterado para Decimal
+  subtotal  Decimal  @default(0.0) // Alterado para Decimal
+  taxAmount Decimal  @default(0.0) // Alterado para Decimal
 }
 
 // 13. TRILHA DE AUDITORIA

@@ -151,15 +151,19 @@ export async function POST(request: Request) {
           throw new Error(`Produto ID ${item.productId} não foi encontrado.`);
         }
 
-        if (product.stock < item.quantity) {
-          throw new Error(`Estoque insuficiente para "${product.name}". Restam ${product.stock}.`);
+        const productStock = Number(product.stock);
+        const productPrice = Number(product.price);
+        const productTaxPercentage = product.taxPercentage ? Number(product.taxPercentage) : 0;
+
+        if (productStock < item.quantity) {
+          throw new Error(`Estoque insuficiente para "${product.name}". Restam ${productStock}.`);
         }
 
-        const itemTotal = product.price * item.quantity;
+        const itemTotal = productPrice * item.quantity;
         subtotalSum += itemTotal;
 
-        if (product.taxPercentage && product.taxPercentage > 0) {
-          taxTotalSum += itemTotal * (product.taxPercentage / 100);
+        if (productTaxPercentage > 0) {
+          taxTotalSum += itemTotal * (productTaxPercentage / 100);
         }
       }
 

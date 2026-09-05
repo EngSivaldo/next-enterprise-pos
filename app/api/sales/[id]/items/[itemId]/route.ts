@@ -53,8 +53,8 @@ export async function DELETE(
         return null;
       }
 
-      // 5. Recalcula o novo total e o novo troco
-      const valueToRemove = Number(item.price) * item.quantity;
+      // 5. Recalcula o novo total e o novo troco (convertendo Decimal para Number)
+      const valueToRemove = Number(item.price) * Number(item.quantity);
       const newTotal = Number(item.sale.total) - valueToRemove;
       const newSubtotal = Number(item.sale.subtotal) - valueToRemove;
       

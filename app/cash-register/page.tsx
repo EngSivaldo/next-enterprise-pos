@@ -41,6 +41,23 @@ export default function CashRegisterPage() {
     e.preventDefault();
     setErrorMsg("");
 
+    const reportedAmount = parseFloat(amount) || 0;
+    const expectedAmount = shiftData?.calculatedBalance || 0;
+
+    if (modalType === "CLOSE" && reportedAmount !== expectedAmount) {
+      const diff = reportedAmount - expectedAmount;
+      const typeStr = diff < 0 ? `QUEBRA DE CAIXA de R$ ${Math.abs(diff).toFixed(2)}` : `SOBRA DE CAIXA de R$ ${diff.toFixed(2)}`;
+      
+      const confirmClose = window.confirm(
+        `Atenção! Existe uma divergência nos valores:\n\n` +
+        `• Esperado pelo sistema: R$ ${expectedAmount.toFixed(2)}\n` +
+        `• Contado por você: R$ ${reportedAmount.toFixed(2)}\n\n` +
+        `Será registrada uma ${typeStr}.\n\nDeseja fechar o caixa mesmo assim?`
+      );
+
+      if (!confirmClose) return;
+    }
+
     let payload: any = { pin };
 
     if (modalType === "OPEN") {
@@ -78,6 +95,10 @@ export default function CashRegisterPage() {
     fetchStatus();
   }
 
+  const reportedNum = parseFloat(amount) || 0;
+  const expectedNum = shiftData?.calculatedBalance || 0;
+  const currentDiff = reportedNum - expectedNum;
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 p-8">
       <header className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
@@ -90,7 +111,7 @@ export default function CashRegisterPage() {
           {isOpen && (
             <Link 
               href="/pos" 
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2"
             >
               🛒 Ir para o PDV
             </Link>
@@ -129,7 +150,7 @@ export default function CashRegisterPage() {
                     R$ {(shiftData?.calculatedBalance || 0).toFixed(2)}
                   </span>
                   <button
-                    onClick={() => { setModalType("CLOSE"); setErrorMsg(""); }}
+                    onClick={() => { setModalType("CLOSE"); setErrorMsg(""); setAmount(""); }}
                     className="block mt-2 bg-rose-600 hover:bg-rose-500 text-white text-xs px-4 py-2 rounded-lg font-medium ml-auto transition"
                   >
                     Fechar Caixa
@@ -137,7 +158,7 @@ export default function CashRegisterPage() {
                 </div>
               ) : (
                 <button
-                  onClick={() => { setModalType("OPEN"); setErrorMsg(""); }}
+                  onClick={() => { setModalType("OPEN"); setErrorMsg(""); setAmount(""); }}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition"
                 >
                   Abrir Turno de Caixa
@@ -150,7 +171,7 @@ export default function CashRegisterPage() {
           {isOpen && (
             <div className="grid grid-cols-2 gap-4">
               <button
-                onClick={() => { setModalType("SANGRIA"); setErrorMsg(""); }}
+                onClick={() => { setModalType("SANGRIA"); setErrorMsg(""); setAmount(""); }}
                 className="p-4 bg-slate-800 border border-slate-700 rounded-xl hover:border-slate-500 text-left transition shadow-md"
               >
                 <div className="text-rose-400 font-semibold mb-1">💸 Realizar Sangria</div>
@@ -158,7 +179,7 @@ export default function CashRegisterPage() {
               </button>
 
               <button
-                onClick={() => { setModalType("SUPRIMENTO"); setErrorMsg(""); }}
+                onClick={() => { setModalType("SUPRIMENTO"); setErrorMsg(""); setAmount(""); }}
                 className="p-4 bg-slate-800 border border-slate-700 rounded-xl hover:border-slate-500 text-left transition shadow-md"
               >
                 <div className="text-emerald-400 font-semibold mb-1">💵 Adicionar Suprimento</div>
@@ -209,6 +230,30 @@ export default function CashRegisterPage() {
                   placeholder="0.00"
                 />
               </div>
+
+              {/* Destaque de Divergência no Modal de Fechamento */}
+              {modalType === "CLOSE" && amount !== "" && (
+                <div className={`p-3 rounded-lg border text-xs ${
+                  currentDiff === 0 
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : currentDiff < 0
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                }`}>
+                  <div className="flex justify-between">
+                    <span>Esperado pelo Sistema:</span>
+                    <strong>R$ {expectedNum.toFixed(2)}</strong>
+                  </div>
+                  <div className="flex justify-between mt-1 pt-1 border-t border-slate-700/50">
+                    <span>Diferença Apurada:</span>
+                    <strong>
+                      {currentDiff === 0 && "Sem diferença (OK)"}
+                      {currentDiff < 0 && `Quebra: -R$ ${Math.abs(currentDiff).toFixed(2)}`}
+                      {currentDiff > 0 && `Sobra: +R$ ${currentDiff.toFixed(2)}`}
+                    </strong>
+                  </div>
+                </div>
+              )}
 
               {(modalType === "SANGRIA" || modalType === "SUPRIMENTO") && (
                 <div>

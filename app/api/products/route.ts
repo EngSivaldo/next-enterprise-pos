@@ -108,8 +108,12 @@ export async function PUT(request: Request) {
         throw new Error("PRODUCT_NOT_FOUND");
       }
 
-      const newStock = stock !== undefined ? Number(stock) : currentProduct.stock;
-      const stockDiff = newStock - currentProduct.stock;
+      // Converte o campo Decimal retornado do banco para Number antes de realizar cálculos
+      const currentStockNum = Number(currentProduct.stock);
+      const currentCostPriceNum = currentProduct.costPrice ? Number(currentProduct.costPrice) : 0;
+
+      const newStock = stock !== undefined ? Number(stock) : currentStockNum;
+      const stockDiff = newStock - currentStockNum;
 
       // Se o estoque mudou, gera um registro de auditoria em StockMovement
       if (stockDiff !== 0) {
@@ -118,7 +122,7 @@ export async function PUT(request: Request) {
             productId: Number(id),
             type: stockDiff > 0 ? "IN_ADJUSTMENT" : "OUT_ADJUSTMENT",
             quantity: Math.abs(stockDiff),
-            unitCost: costPrice !== undefined ? Number(costPrice) : currentProduct.costPrice,
+            unitCost: costPrice !== undefined ? Number(costPrice) : currentCostPriceNum,
             notes: "Ajuste manual de estoque via módulo de Inventário",
           },
         });
