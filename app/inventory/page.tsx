@@ -172,7 +172,7 @@ export default function InventoryPage() {
                     <td className="p-4 font-medium text-[var(--text-primary)]">{product.name}</td>
                     <td className="p-4 text-[var(--text-secondary)]">R$ {Number(product.costPrice || 0).toFixed(2)}</td>
                     <td className="p-4 text-[var(--accent-color)] font-bold">R$ {Number(product.price).toFixed(2)}</td>
-                    <td className="p-4 font-semibold text-[var(--text-primary)]">{product.stock} un</td>
+                    <td className="p-4 font-semibold text-[var(--text-primary)]">{product.stock}</td>
                     <td className="p-4">
                       {product.stock <= (product.minStock || 5) ? (
                         <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
@@ -211,9 +211,10 @@ export default function InventoryPage() {
 
             <form onSubmit={handleSaveProduct} className="space-y-4 text-sm">
               <div>
-                <label className="block text-xs text-[var(--text-secondary)] mb-1">Estoque Atual (Unidades)</label>
+                <label className="block text-xs text-[var(--text-secondary)] mb-1">Estoque Atual</label>
                 <input
                   type="number"
+                  step="any"
                   required
                   value={editStock}
                   onChange={(e) => setEditStock(Number(e.target.value))}
@@ -293,6 +294,7 @@ export default function InventoryPage() {
                   <label className="block text-xs text-[var(--text-secondary)] mb-1">Estoque Inicial</label>
                   <input
                     type="number"
+                    step="any"
                     required
                     value={newStock}
                     onChange={(e) => setNewStock(Number(e.target.value))}
@@ -303,6 +305,7 @@ export default function InventoryPage() {
                   <label className="block text-xs text-[var(--text-secondary)] mb-1">Estoque Mínimo</label>
                   <input
                     type="number"
+                    step="any"
                     required
                     value={newMinStock}
                     onChange={(e) => setNewMinStock(Number(e.target.value))}

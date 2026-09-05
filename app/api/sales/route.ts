@@ -93,12 +93,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { 
-      items, 
+    const {
+      items,
       paymentMethod,
-      paidAmount, 
-      customerName, 
-      customerDocument 
+      paidAmount,
+      customerName,
+      customerDocument
     } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -137,9 +137,9 @@ export async function POST(request: Request) {
       let taxTotalSum = 0;
 
       const normalizedItems = items.map((item: any) => ({
-        productId: item.productId || item.id,
-        quantity: Number(item.quantity) || 1,
-        price: Number(item.price || item.unitPrice) || 0,
+        productId: Number(item.productId || item.id),
+        quantity: parseFloat(item.quantity) || 1,
+        price: parseFloat(item.price || item.unitPrice) || 0,
       }));
 
       for (const item of normalizedItems) {
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
         }
 
         if (product.stock < item.quantity) {
-          throw new Error(`Estoque insuficiente para "${product.name}". Restam ${product.stock} un.`);
+          throw new Error(`Estoque insuficiente para "${product.name}". Restam ${product.stock}.`);
         }
 
         const itemTotal = product.price * item.quantity;
@@ -191,7 +191,7 @@ export async function POST(request: Request) {
           paidAmount: received,
           changeAmount: change,
           status: "COMPLETED",
-          fiscalKey: paymentMethod || "MONEY", // Armazena a forma de pagamento com segurança
+          fiscalKey: paymentMethod || "MONEY",
           customerName: customerName || null,
           customerDocument: cleanDocument.length > 0 ? cleanDocument : null,
           taxTotal: taxTotalSum,

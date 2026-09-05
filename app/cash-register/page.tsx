@@ -1,148 +1,252 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Header } from "@/components/Header";
+import { useRouter } from "next/navigation";
 
 export default function CashRegisterPage() {
-  const [isOpen, setIsOpen] = useState(true);
-  const [initialBalance, setInitialBalance] = useState("100.00");
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [shiftData, setShiftData] = useState<any>(null);
 
-  // Modal control states
-  const [activeModal, setActiveModal] = useState<"sangria" | "suprimento" | null>(null);
+  // Estados dos Modais
+  const [modalType, setModalType] = useState<"OPEN" | "CLOSE" | "SANGRIA" | "SUPRIMENTO" | null>(null);
+  const [pin, setPin] = useState("");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleTransaction = (e: React.FormEvent) => {
+  // Carregar status atual do caixa
+  async function fetchStatus() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/cash-register");
+      const data = await res.json();
+      setIsOpen(data.isOpen);
+      setShiftData(data.register);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  // Submit do Form / Validação por PIN
+  async function handleAction(e: React.FormEvent) {
     e.preventDefault();
-    if (!amount) return;
+    setErrorMsg("");
 
-    const val = parseFloat(amount.replace(",", "."));
-    if (isNaN(val)) return;
+    let payload: any = { pin };
 
-    const current = parseFloat(initialBalance);
-    if (activeModal === "sangria") {
-      setInitialBalance((current - val).toFixed(2));
-    } else if (activeModal === "suprimento") {
-      setInitialBalance((current + val).toFixed(2));
+    if (modalType === "OPEN") {
+      payload = { ...payload, action: "OPEN", initialBalance: amount };
+    } else if (modalType === "CLOSE") {
+      payload = { ...payload, action: "CLOSE", finalBalance: amount };
+    } else if (modalType === "SANGRIA") {
+      payload = { ...payload, action: "TRANSACTION", type: "CASH_OUT", amount, reason };
+    } else if (modalType === "SUPRIMENTO") {
+      payload = { ...payload, action: "TRANSACTION", type: "CASH_IN", amount, reason };
     }
 
+    const res = await fetch("/api/cash-register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setErrorMsg(data.error || "Ocorreu um erro ao processar.");
+      return;
+    }
+
+    if (modalType === "OPEN") {
+      router.push("/pos");
+      return;
+    }
+
+    setModalType(null);
+    setPin("");
     setAmount("");
     setReason("");
-    setActiveModal(null);
-  };
+    fetchStatus();
+  }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-primary)] flex flex-col font-sans select-none">
-      <Header />
-
-      <main className="max-w-4xl mx-auto w-full space-y-6 p-6 flex-1">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Turno de Caixa</h1>
-            <p className="text-xs text-[var(--text-secondary)] mt-1">Abertura, fechamento e conferência de troco inicial</p>
-          </div>
-          <Link
-            href="/"
-            className="px-4 py-2 text-xs font-semibold text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-inner)] rounded-xl border border-[var(--border-color)] transition-colors"
-          >
+    <div className="min-h-screen bg-slate-900 text-slate-100 p-8">
+      <header className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Turno de Caixa</h1>
+          <p className="text-slate-400 text-sm">Abertura, fechamento e movimentações com validação por PIN de Gerente</p>
+        </div>
+        
+        <div className="flex gap-3">
+          {isOpen && (
+            <Link 
+              href="/pos" 
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
+            >
+              🛒 Ir para o PDV
+            </Link>
+          )}
+          <Link href="/" className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium border border-slate-700">
             Menu Principal
           </Link>
         </div>
+      </header>
 
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-6 space-y-6 shadow-xl">
-          <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
+      {loading ? (
+        <div className="p-8 text-center text-slate-400">Carregando informações do caixa...</div>
+      ) : (
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Card de Status */}
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex items-center justify-between shadow-lg">
             <div>
-              <span className="text-xs text-[var(--text-secondary)] block">Status Atual do Caixa</span>
-              <span className={`text-lg font-bold ${isOpen ? "text-emerald-400" : "text-rose-400"}`}>
-                {isOpen ? "● CAIXA ABERTO" : "○ CAIXA FECHADO"}
-              </span>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="text-right">
-                <span className="text-xs text-[var(--text-secondary)] block">Fundo em Caixa</span>
-                <span className="text-lg font-bold text-[var(--text-primary)]">R$ {initialBalance}</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Status Atual</span>
+              <div className="flex items-center gap-3 mt-1">
+                <span className={`h-3 w-3 rounded-full ${isOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                <h2 className="text-xl font-bold text-white">{isOpen ? "CAIXA ABERTO" : "CAIXA FECHADO"}</h2>
               </div>
+              {isOpen && shiftData && (
+                <p className="text-xs text-slate-300 mt-2">
+                  Aberto por <strong className="text-white">{shiftData.user?.name}</strong> em{" "}
+                  {new Date(shiftData.openedAt).toLocaleString("pt-BR")}
+                </p>
+              )}
+            </div>
+
+            <div>
+              {isOpen ? (
+                <div className="text-right">
+                  <span className="text-xs text-slate-400 block">Fundo + Transações Estimadas</span>
+                  <span className="text-2xl font-bold text-emerald-400">
+                    R$ {(shiftData?.calculatedBalance || 0).toFixed(2)}
+                  </span>
+                  <button
+                    onClick={() => { setModalType("CLOSE"); setErrorMsg(""); }}
+                    className="block mt-2 bg-rose-600 hover:bg-rose-500 text-white text-xs px-4 py-2 rounded-lg font-medium ml-auto transition"
+                  >
+                    Fechar Caixa
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setModalType("OPEN"); setErrorMsg(""); }}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition"
+                >
+                  Abrir Turno de Caixa
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Opções de Movimentação */}
+          {isOpen && (
+            <div className="grid grid-cols-2 gap-4">
               <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all ${
-                  isOpen
-                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20"
-                    : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-                }`}
+                onClick={() => { setModalType("SANGRIA"); setErrorMsg(""); }}
+                className="p-4 bg-slate-800 border border-slate-700 rounded-xl hover:border-slate-500 text-left transition shadow-md"
               >
-                {isOpen ? "Fechar Caixa" : "Abrir Caixa"}
+                <div className="text-rose-400 font-semibold mb-1">💸 Realizar Sangria</div>
+                <div className="text-xs text-slate-400">Retirada de dinheiro em espécie do caixa</div>
+              </button>
+
+              <button
+                onClick={() => { setModalType("SUPRIMENTO"); setErrorMsg(""); }}
+                className="p-4 bg-slate-800 border border-slate-700 rounded-xl hover:border-slate-500 text-left transition shadow-md"
+              >
+                <div className="text-emerald-400 font-semibold mb-1">💵 Adicionar Suprimento</div>
+                <div className="text-xs text-slate-400">Injeção de reforço de fundo de troco</div>
               </button>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              disabled={!isOpen}
-              onClick={() => setActiveModal("sangria")}
-              className="p-4 bg-[var(--bg-inner)] border border-[var(--border-color)] hover:border-[var(--accent-color)] rounded-xl text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              <span className="text-rose-400 font-bold block mb-1 group-hover:translate-x-1 transition-transform">💸 Realizar Sangria</span>
-              <span className="text-xs text-[var(--text-secondary)]">Retirada de valor em dinheiro do caixa</span>
-            </button>
-            <button
-              disabled={!isOpen}
-              onClick={() => setActiveModal("suprimento")}
-              className="p-4 bg-[var(--bg-inner)] border border-[var(--border-color)] hover:border-[var(--accent-color)] rounded-xl text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              <span className="text-emerald-400 font-bold block mb-1 group-hover:translate-x-1 transition-transform">💵 Adicionar Suprimento</span>
-              <span className="text-xs text-[var(--text-secondary)]">Injeção de fundo de troco adicional</span>
-            </button>
-          </div>
+          )}
         </div>
-      </main>
+      )}
 
-      {/* Modal de Sangria / Suprimento */}
-      {activeModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-3">
-              <h2 className="text-base font-bold text-[var(--text-primary)]">
-                {activeModal === "sangria" ? "💸 Realizar Sangria" : "💵 Adicionar Suprimento"}
-              </h2>
-              <button onClick={() => setActiveModal(null)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">✕</button>
-            </div>
+      {/* Modal de Operação / Validação por PIN */}
+      {modalType && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md text-slate-100 shadow-2xl">
+            <h3 className="text-lg font-bold mb-1 text-white">
+              {modalType === "OPEN" && "Abertura de Caixa"}
+              {modalType === "CLOSE" && "Fechamento de Caixa"}
+              {modalType === "SANGRIA" && "Realizar Sangria"}
+              {modalType === "SUPRIMENTO" && "Adicionar Suprimento"}
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              {modalType === "OPEN" && "Informe o fundo inicial e o PIN do Gerente/Admin"}
+              {modalType === "CLOSE" && "Informe o saldo contado e o PIN do Gerente/Admin"}
+              {modalType === "SANGRIA" && "Digite o valor de saída e confirme com seu PIN"}
+              {modalType === "SUPRIMENTO" && "Digite o valor de entrada e confirme com seu PIN"}
+            </p>
 
-            <form onSubmit={handleTransaction} className="space-y-3 text-sm">
+            {errorMsg && (
+              <div className="mb-4 p-3 bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs rounded-lg">
+                {errorMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleAction} className="space-y-4">
               <div>
-                <label className="block text-xs text-[var(--text-secondary)] mb-1">Valor (R$) *</label>
+                <label className="text-xs font-medium text-slate-300 block mb-1">
+                  {modalType === "OPEN" && "Fundo Inicial (R$)"}
+                  {modalType === "CLOSE" && "Valor em Caixa na Contagem (R$)"}
+                  {(modalType === "SANGRIA" || modalType === "SUPRIMENTO") && "Valor (R$)"}
+                </label>
                 <input
-                  type="text"
+                  type="number"
+                  step="0.01"
                   required
-                  placeholder="0,00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full bg-[var(--bg-inner)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-color)]"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="0.00"
                 />
               </div>
+
+              {(modalType === "SANGRIA" || modalType === "SUPRIMENTO") && (
+                <div>
+                  <label className="text-xs font-medium text-slate-300 block mb-1">Motivo / Observação</label>
+                  <input
+                    type="text"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    placeholder="Ex: Pagamento de fornecedor rápido"
+                  />
+                </div>
+              )}
 
               <div>
-                <label className="block text-xs text-[var(--text-secondary)] mb-1">Motivo / Observação</label>
+                <label className="text-xs font-medium text-slate-300 block mb-1">PIN do Gerente / Operador</label>
                 <input
-                  type="text"
-                  placeholder="Ex: Pagamento fornecedor, Sangria de segurança"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="w-full bg-[var(--bg-inner)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-color)]"
+                  type="password"
+                  required
+                  maxLength={6}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 tracking-widest text-center text-lg"
+                  placeholder="••••"
                 />
               </div>
 
-              <div className="flex gap-3 pt-3">
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setActiveModal(null)}
-                  className="flex-1 py-2 bg-[var(--bg-inner)] text-[var(--text-secondary)] border border-[var(--border-color)] rounded-xl text-xs font-semibold"
+                  onClick={() => setModalType(null)}
+                  className="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-lg text-sm font-medium"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-[var(--accent-color)] text-[var(--btn-primary-text)] font-bold rounded-xl text-xs hover:opacity-90 transition-opacity"
+                  className="w-1/2 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-medium"
                 >
                   Confirmar
                 </button>

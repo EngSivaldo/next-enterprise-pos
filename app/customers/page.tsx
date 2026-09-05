@@ -138,7 +138,7 @@ export default function CustomersPage() {
           {loading ? (
             <div className="p-8 text-center text-[var(--text-secondary)]">Carregando clientes...</div>
           ) : customers.length === 0 ? (
-            <div className="p-8 text-center text-[var(--text-secondary)]">Nenhum cliente cadastrado. Clique em "+ Novo Cliente" para adicionar.</div>
+            <div className="p-8 text-center text-[var(--text-secondary)]">Nenhum cliente cadastrado. Clique em &quot;+ Novo Cliente&quot; para adicionar.</div>
           ) : (
             <table className="w-full text-left border-collapse text-sm">
               <thead>

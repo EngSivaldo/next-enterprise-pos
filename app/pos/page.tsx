@@ -87,7 +87,7 @@ export default function PDVPage() {
       const existing = prevCart.find((item) => item.product.id === product.id);
       if (existing) {
         if (existing.quantity + 1 > product.stock) {
-          alert(`Estoque máximo atingido para "${product.name}". Restam ${product.stock} un.`);
+          alert(`Estoque máximo atingido para "${product.name}". Restam ${product.stock}.`);
           return prevCart;
         }
         return prevCart.map((item) =>
@@ -100,21 +100,22 @@ export default function PDVPage() {
     });
   };
 
-  const updateQuantity = (productId: number, delta: number) => {
+  const updateQuantityDirect = (productId: number, newQty: number) => {
+    if (isNaN(newQty) || newQty <= 0) {
+      return;
+    }
+
     setCart((prevCart) => {
-      return prevCart
-        .map((item) => {
-          if (item.product.id === productId) {
-            const newQty = item.quantity + delta;
-            if (newQty > item.product.stock) {
-              alert(`Estoque insuficiente. Disponível: ${item.product.stock}`);
-              return item;
-            }
-            return { ...item, quantity: newQty };
+      return prevCart.map((item) => {
+        if (item.product.id === productId) {
+          if (newQty > item.product.stock) {
+            alert(`Estoque insuficiente. Disponível: ${item.product.stock}`);
+            return item;
           }
-          return item;
-        })
-        .filter((item) => item.quantity > 0);
+          return { ...item, quantity: newQty };
+        }
+        return item;
+      });
     });
   };
 
@@ -241,7 +242,7 @@ export default function PDVPage() {
 
   return (
     <div className={`min-h-screen ${themeStyles.bg} flex flex-col font-sans select-none transition-colors duration-300`}>
-      {/* Header Corporativo com Seletor de Cores */}
+      {/* Header Corporativo */}
       <header className={`${themeStyles.header} border-b px-6 py-3 flex justify-between items-center shadow-md`}>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -255,7 +256,6 @@ export default function PDVPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Seletor de Temas */}
           <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/10">
             <button
               onClick={() => setTheme("dark")}
@@ -358,7 +358,7 @@ export default function PDVPage() {
                                   : "bg-black/20"
                               }`}
                             >
-                              {product.stock} un
+                              {product.stock}
                             </span>
                           </td>
                           <td className={`py-3 px-4 text-right font-extrabold font-mono ${themeStyles.accentText}`}>
@@ -396,7 +396,7 @@ export default function PDVPage() {
                 <h2 className="text-sm font-bold uppercase tracking-wider">Itens da Venda</h2>
               </div>
               <span className="text-xs bg-black/20 font-bold px-2.5 py-1 rounded-full border border-white/10">
-                {totalItemsCount} {totalItemsCount === 1 ? "item" : "itens"}
+                {totalItemsCount % 1 === 0 ? totalItemsCount : totalItemsCount.toFixed(3)} {totalItemsCount === 1 ? "item" : "itens"}
               </span>
             </div>
 
@@ -417,26 +417,23 @@ export default function PDVPage() {
                       <div>
                         <p className="font-semibold line-clamp-1">{item.product.name}</p>
                         <p className="text-xs opacity-60 font-mono">
-                          {item.quantity}x R$ {Number(item.product.price).toFixed(2)}
+                          {item.quantity} x R$ {Number(item.product.price).toFixed(2)}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center bg-black/20 border border-white/10 rounded-lg">
-                        <button
-                          onClick={() => updateQuantity(item.product.id, -1)}
-                          className="px-2 py-1 font-bold hover:text-red-400 transition-colors"
-                        >
-                          -
-                        </button>
-                        <span className="px-2 text-xs font-bold font-mono">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.product.id, 1)}
-                          className="px-2 py-1 font-bold hover:text-emerald-400 transition-colors"
-                        >
-                          +
-                        </button>
+                      {/* Input direto para suportar decimais (ex: 0.250 kg) */}
+                      <div className="flex items-center bg-black/20 border border-white/10 rounded-lg px-2 py-1">
+                        <span className="text-[10px] opacity-60 mr-1 font-bold">QTD:</span>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0.001"
+                          value={item.quantity}
+                          onChange={(e) => updateQuantityDirect(item.product.id, parseFloat(e.target.value))}
+                          className="w-16 bg-transparent text-xs font-bold font-mono text-center focus:outline-none"
+                        />
                       </div>
 
                       <span className={`font-mono font-extrabold w-20 text-right ${themeStyles.accentText}`}>

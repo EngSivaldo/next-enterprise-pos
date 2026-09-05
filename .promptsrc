@@ -1,3 +1,43 @@
+# Especificação do Projeto PDV
+
+## Estrutura de Arquivos
+```
+app
+app/sales
+app/sales/page.tsx
+app/inventory
+app/inventory/page.tsx
+app/page.tsx
+app/layout.tsx
+app/pos
+app/pos/page.tsx
+app/customers
+app/customers/page.tsx
+app/cash-register
+app/cash-register/page.tsx
+app/globals.css
+app/suppliers
+app/suppliers/page.tsx
+app/api
+app/api/sales
+app/api/sales/[id]
+app/api/sales/route.ts
+app/api/products
+app/api/products/route.ts
+app/api/customers
+app/api/customers/route.ts
+app/api/cash-register
+app/api/cash-register/route.ts
+components
+components/Header.tsx
+prisma
+prisma/seed.ts
+prisma/schema.prisma
+prisma/dev.db
+```
+
+## Schema do Banco de Dados (Prisma)
+```prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -43,20 +83,20 @@ model Supplier {
 
 // 3. OPERADORES / USUÁRIOS
 model User {
-  id              Int            @id @default(autoincrement())
-  name            String
-  email           String         @unique
-  password        String?        // Senha de login
-  pin             String?        // PIN de 4 a 6 dígitos (Abertura/Liberacao de Caixa)
-  role            String         @default("CASHIER") // ADMIN, MANAGER, CASHIER
-  active          Boolean        @default(true)
-  sales           Sale[]
+  id             Int             @id @default(autoincrement())
+  name           String
+  email          String          @unique
+  password       String?         // Senha de login
+  pin            String?         // PIN de 4 a 6 dígitos (Abertura/Liberacao de Caixa)
+  role           String          @default("CASHIER") // ADMIN, MANAGER, CASHIER
+  active         Boolean         @default(true)
+  sales          Sale[]
   openedRegisters CashRegister[] @relation("OpenedBy")
   closedRegisters CashRegister[] @relation("ClosedBy")
   stockMovements StockMovement[]
   auditLogs      AuditLog[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @default(now()) @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @default(now()) @updatedAt
 }
 
 // 4. CLIENTES
@@ -85,25 +125,25 @@ model Product {
   barcode       String?         @unique // Código de barras EAN/GTIN
   price         Float           // Preço de Venda
   costPrice     Float?          @default(0.0) // Preço de Custo
-  stock         Float           @default(0.0) // Alterado de Int para Float (Suporta KG, LT, etc.)
-  minStock      Float           @default(5.0) // Alterado de Int para Float
+  stock         Int             @default(0)
+  minStock      Int             @default(5)   // Alerta de estoque baixo
   unit          String          @default("UN")// UN, KG, LT, CX
-
+  
   // Requisitos Fiscais
   ncm           String?         // Nomenclatura Comum do Mercosul
   cest          String?         // Código Especificador da Substituição Tributária
   taxPercentage Float           @default(0.0) // Alíquota IBPT
-
+  
   // Relacionamentos
   categoryId    Int?
   category      Category?       @relation(fields: [categoryId], references: [id])
   supplierId    Int?
   supplier      Supplier?       @relation(fields: [supplierId], references: [id])
-
-  saleItems      SaleItem[]
+  
+  saleItems     SaleItem[]
   stockMovements StockMovement[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @default(now()) @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @default(now()) @updatedAt
 }
 
 // 7. CONTROLE DE ESTOQUE (HISTÓRICO)
@@ -115,35 +155,35 @@ model StockMovement {
   supplier      Supplier? @relation(fields: [supplierId], references: [id])
   userId        Int?
   user          User?    @relation(fields: [userId], references: [id])
-
+  
   type          String   // IN_PURCHASE, OUT_SALE, IN_ADJUSTMENT, OUT_LOSS, OUT_ADJUSTMENT
-  quantity      Float    // Alterado de Int para Float (Suporta movimentação fracionada)
+  quantity      Int
   unitCost      Float?
   invoiceNumber String?
   notes         String?
-
+  
   createdAt     DateTime @default(now())
 }
 
 // 8. CONTROLE DE CAIXA (TURNOS / SANGRIAS)
 model CashRegister {
-  id                Int               @id @default(autoincrement())
-  userId            Int               // Quem abriu o caixa
-  user              User              @relation("OpenedBy", fields: [userId], references: [id])
-  closedById        Int?              // Quem fechou o caixa
-  closedBy          User?             @relation("ClosedBy", fields: [closedById], references: [id])
-
-  openedAt          DateTime          @default(now())
-  closedAt          DateTime?
-  initialBalance    Float             // Fundo de Troco Inicial
-  calculatedBalance Float?            // Saldo Esperado pelo Sistema no Fechamento
-  finalBalance      Float?            // Saldo Informado na Conferência Cega
-  status            String            @default("OPEN") // OPEN, CLOSED
-  openingNotes      String?
-  closingNotes      String?
-
-  transactions      CashTransaction[]
-  sales             Sale[]
+  id               Int               @id @default(autoincrement())
+  userId           Int               // Quem abriu o caixa
+  user             User              @relation("OpenedBy", fields: [userId], references: [id])
+  closedById       Int?              // Quem fechou o caixa
+  closedBy         User?             @relation("ClosedBy", fields: [closedById], references: [id])
+  
+  openedAt         DateTime          @default(now())
+  closedAt         DateTime?
+  initialBalance   Float             // Fundo de Troco Inicial
+  calculatedBalance Float?           // Saldo Esperado pelo Sistema no Fechamento
+  finalBalance     Float?            // Saldo Informado na Conferência Cega
+  status           String            @default("OPEN") // OPEN, CLOSED
+  openingNotes     String?
+  closingNotes     String?
+  
+  transactions     CashTransaction[]
+  sales            Sale[]
 }
 
 // 9. MOVIMENTAÇÕES DE CAIXA (Sangria / Suprimento)
@@ -167,23 +207,23 @@ model Sale {
   paidAmount       Float         @default(0.0)
   changeAmount     Float         @default(0.0)
   status           String        @default("COMPLETED") // COMPLETED, CANCELED
-
+  
   // Dados do Cliente
   customerId       Int?
   customer         Customer?     @relation(fields: [customerId], references: [id])
   customerName     String?
   customerDocument String?
-
+  
   // Operador e Caixa
   userId           Int?
   user             User?         @relation(fields: [userId], references: [id])
   cashRegisterId   Int?
   cashRegister     CashRegister? @relation(fields: [cashRegisterId], references: [id])
-
+  
   // Detalhes Fiscais
   taxTotal         Float         @default(0.0)
   fiscalKey        String?
-
+  
   items            SaleItem[]
   payments         SalePayment[] // Múltiplas formas de pagamento por venda
   createdAt        DateTime      @default(now())
@@ -192,27 +232,27 @@ model Sale {
 
 // 11. MÚLTIPLAS FORMAS DE PAGAMENTO
 model SalePayment {
-  id        Int      @id @default(autoincrement())
-  saleId    Int
-  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  method    String   // MONEY, PIX, CREDIT_CARD, DEBIT_CARD
-  amount    Float    // Valor pago nessa modalidade
-  createdAt DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  saleId        Int
+  sale          Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method        String   // MONEY, PIX, CREDIT_CARD, DEBIT_CARD
+  amount        Float    // Valor pago nessa modalidade
+  createdAt     DateTime @default(now())
 }
 
 // 12. ITENS DA VENDA
 model SaleItem {
-  id        Int     @id @default(autoincrement())
-  saleId    Int
-  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  productId Int
-  product   Product @relation(fields: [productId], references: [id])
-  quantity  Float   // Alterado de Int para Float (Suporta quantidade vendida fracionada)
-  price     Float   // Preço de venda praticado
-  costPrice Float?  @default(0.0) // Custo histórico no momento da venda
-  discount  Float   @default(0.0)
-  subtotal  Float   @default(0.0) // (quantity * price) - discount
-  taxAmount Float   @default(0.0)
+  id         Int     @id @default(autoincrement())
+  saleId     Int
+  sale       Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId  Int
+  product    Product @relation(fields: [productId], references: [id])
+  quantity   Int
+  price      Float   // Preço de venda praticado
+  costPrice  Float?  @default(0.0) // Custo histórico no momento da venda
+  discount   Float   @default(0.0)
+  subtotal   Float   @default(0.0) // (quantity * price) - discount
+  taxAmount  Float   @default(0.0)
 }
 
 // 13. TRILHA DE AUDITORIA
@@ -223,4 +263,9 @@ model AuditLog {
   action    String   // CANCELED_SALE, PRICE_OVERRIDE, CASH_DRAWER_OPEN, STOCK_ADJUSTMENT
   details   String
   createdAt DateTime @default(now())
-}
+}```
+
+## Diretrizes para a Frente de Caixa (PDV)
+1. **Carrinho e Vendas:** Utilizar busca rápida por input e gerenciar o estado dos itens no componente da página de checkout.
+2. **Operações de Banco:** Garantir que a criação de pedidos e a baixa de estoque ocorram via `prisma.$transaction`.
+3. **Padrão Visual:** Manter a consistência com Tailwind CSS e ícones do `lucide-react`.
